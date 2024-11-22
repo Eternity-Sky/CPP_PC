@@ -6,7 +6,11 @@ const path = require('path');
 const app = express();
 
 // 启用CORS和JSON解析
-app.use(cors());
+app.use(cors({
+    origin: ['https://你的github.io域名', 'http://localhost:3000'],
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type']
+}));
 app.use(express.json());
 app.use(express.static('public'));
 
