@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>C++在线评测系统</title>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>C++在线评测系统</h1>
+        <div class="editor-container">
+            <button id="sample-btn">加载示例代码</button>
+            <textarea id="code-editor" placeholder="在此输入C++代码..."></textarea>
+        </div>
+        <div class="test-cases">
+            <div class="input-section">
+                <h3>输入样例：</h3>
+                <textarea id="test-input" placeholder="输入测试用例..."></textarea>
+            </div>
+            <div class="output-section">
+                <h3>期望输出：</h3>
+                <textarea id="expected-output" placeholder="期望输出结果..."></textarea>
+            </div>
+        </div>
+        <button id="submit-btn">提交评测</button>
+        <div id="result-container"></div>
+    </div>
+    <script src="./script.js"></script>
+</body>
+</html> 
