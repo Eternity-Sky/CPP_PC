@@ -22,7 +22,7 @@ int main() {
 
     submitBtn.addEventListener('click', async () => {
         try {
-            const response = await fetch('https://你的vercel域名/api/evaluate', {
+            const response = await fetch('/.netlify/functions/compile', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -34,7 +34,11 @@ int main() {
                 })
             });
             const data = await response.json();
-            resultContainer.innerHTML = `<pre>${data.result}</pre>`;
+            if (data.success) {
+                resultContainer.innerHTML = `<pre>${data.output}</pre>`;
+            } else {
+                resultContainer.innerHTML = `<p style="color: red;">错误：${data.error}</p>`;
+            }
         } catch (error) {
             resultContainer.innerHTML = `<p style="color: red;">评测出错：${error.message}</p>`;
         }

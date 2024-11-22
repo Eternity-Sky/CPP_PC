@@ -1,17 +1,14 @@
 {
-  "name": "pcj",
+  "name": "cpp-online-judge",
   "version": "1.0.0",
-  "main": "script.js",
+  "description": "C++ 在线评测系统",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "netlify dev"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.21.1"
+    "@netlify/functions": "^1.6.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^12.0.0"
   }
 }
