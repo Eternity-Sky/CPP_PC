@@ -1,4 +1,4 @@
-const API_URL = 'https://你的render域名/api/compile';  // 部署后替换为实际地址
+const API_URL = 'https://你的render域名/api/compile';  // 替换为实际得到的域名
 
 document.addEventListener('DOMContentLoaded', () => {
     const codeEditor = document.getElementById('code-editor');

@@ -1,9 +1,13 @@
 const express = require('express');
+const cors = require('cors');
 const path = require('path');
 const compileHandler = require('./api/index.js');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// 启用 CORS
+app.use(cors());
 
 // 解析 JSON 请求体
 app.use(express.json());
