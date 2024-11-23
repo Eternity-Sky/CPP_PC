@@ -1,39 +1,39 @@
 const { exec } = require('child_process');
 const crypto = require('crypto');
-
-// 使用内存中的临时变量存储代码和输入
-const tempStorage = new Map();
-
-// 生成唯一ID
-function generateId() {
-    return crypto.randomBytes(16).toString('hex');
-}
+const os = require('os');
+const path = require('path');
 
 // 编译并运行C++代码
 async function compileAndRun(code, input) {
     return new Promise((resolve, reject) => {
-        const id = generateId();
-        tempStorage.set(`${id}_code`, code);
-        tempStorage.set(`${id}_input`, input);
-
+        const id = crypto.randomBytes(16).toString('hex');
+        const tmpDir = os.tmpdir();
+        const sourcePath = path.join(tmpDir, `${id}.cpp`);
+        const execPath = path.join(tmpDir, id);
+        
         // 使用 echo 命令直接输入代码到编译器
-        const compileCmd = `echo "${code}" | g++ -x c++ -o /tmp/${id} -`;
+        const compileCmd = process.platform === 'win32' 
+            ? `g++ "${sourcePath}" -o "${execPath}.exe"`
+            : `g++ "${sourcePath}" -o "${execPath}"`;
+        
+        // 写入源代码文件
+        require('fs').writeFileSync(sourcePath, code);
         
         exec(compileCmd, (error, stdout, stderr) => {
             if (error) {
-                // 清理存储
-                tempStorage.delete(`${id}_code`);
-                tempStorage.delete(`${id}_input`);
+                // 清理文件
+                cleanupFiles(sourcePath);
                 return reject(new Error(`编译错误: ${stderr}`));
             }
 
-            // 使用 echo 命令输入测试数据
-            const runCmd = `echo "${input}" | /tmp/${id}`;
+            // 运行程序
+            const runCmd = process.platform === 'win32'
+                ? `echo ${input} | "${execPath}.exe"`
+                : `echo "${input}" | "${execPath}"`;
+
             exec(runCmd, { timeout: 5000 }, (error, stdout, stderr) => {
-                // 清理临时文件和存储
-                exec(`rm -f /tmp/${id}`);
-                tempStorage.delete(`${id}_code`);
-                tempStorage.delete(`${id}_input`);
+                // 清理文件
+                cleanupFiles(sourcePath, process.platform === 'win32' ? `${execPath}.exe` : execPath);
 
                 if (error) {
                     if (error.killed) {
@@ -45,6 +45,17 @@ async function compileAndRun(code, input) {
                 resolve(stdout.trim());
             });
         });
+    });
+}
+
+// 清理文件
+function cleanupFiles(...files) {
+    files.forEach(file => {
+        try {
+            require('fs').unlinkSync(file);
+        } catch (error) {
+            console.error('清理文件失败:', error);
+        }
     });
 }
 

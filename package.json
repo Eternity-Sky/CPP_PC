@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "C++在线评测系统",
   "main": "server.js",
+  "engines": {
+    "node": "18.x"
+  },
   "scripts": {
     "start": "node server.js"
   },
