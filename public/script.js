@@ -1,4 +1,4 @@
-const API_URL = 'https://您的项目名.glitch.me/api/compile';
+const API_URL = '您的Glitch项目URL/api/compile';
 
 document.addEventListener('DOMContentLoaded', () => {
     const codeEditor = document.getElementById('code-editor');
