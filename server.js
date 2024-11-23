@@ -14,68 +14,55 @@ app.use(cors({
 
 // 解析 JSON 请求体
 app.use(express.json({
-    limit: '1mb',  // 增加请求体大小限制
-    type: ['application/json', 'text/plain']  // 支持更多内容类型
+    limit: '1mb'
 }));
 
 // 提供静态文件服务
 app.use(express.static('public'));
 
 // 处理编译请求
-app.post('/api/compile', (req, res) => {
-    // 直接在路由中处理请求，不使用 async/await
-    compileHandler({
-        method: 'POST',
-        body: req.body,
-        headers: req.headers
-    }, {
-        status: (code) => ({
-            json: (data) => res.status(code).json(data)
-        }),
-        json: (data) => res.json(data)
-    });
+app.post('/api/compile', async (req, res) => {
+    try {
+        const { code, input, expectedOutput } = req.body;
+        
+        if (!code) {
+            return res.status(400).json({
+                success: false,
+                error: '代码不能为空'
+            });
+        }
+
+        const output = await compileAndRun(code, input || '');
+        const isCorrect = output === expectedOutput.trim();
+
+        res.json({
+            success: true,
+            output: output,
+            isCorrect: isCorrect,
+            message: isCorrect ? '测试通过！' : '输出结果与预期不符'
+        });
+    } catch (error) {
+        console.error('编译运行错误:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || '未知错误'
+        });
+    }
 });
 
 // 错误处理中间件
 app.use((err, req, res, next) => {
     console.error('Error:', err);
-    // 确保返回 JSON 格式的错误信息
     res.status(500).json({
         success: false,
         error: err.message || '服务器内部错误'
     });
 });
 
-// 添加健康检查端点
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok' });
-});
-
-// 添加调试端点
-app.get('/debug', (req, res) => {
-    res.json({
-        env: process.env.NODE_ENV,
-        platform: process.platform,
-        nodeVersion: process.version,
-        memoryUsage: process.memoryUsage(),
-        uptime: process.uptime()
-    });
-});
-
 // 启动服务器
-const server = app.listen(port, () => {
+app.listen(port, () => {
     console.log(`服务器运行在 http://localhost:${port}`);
 });
 
-// 添加错误处理
-server.on('error', (error) => {
-    console.error('Server Error:', error);
-});
-
-process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
-});
-
-process.on('unhandledRejection', (error) => {
-    console.error('Unhandled Rejection:', error);
-}); 
+// 从 api/index.js 导入编译函数
+const { compileAndRun } = require('./api/index.js'); 
