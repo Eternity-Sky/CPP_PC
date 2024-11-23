@@ -1,3 +1,5 @@
+const API_URL = 'https://你的render域名/api/compile';  // 部署后替换为实际地址
+
 document.addEventListener('DOMContentLoaded', () => {
     const codeEditor = document.getElementById('code-editor');
     const testInput = document.getElementById('test-input');
@@ -23,7 +25,7 @@ int main() {
     submitBtn.addEventListener('click', async () => {
         try {
             resultContainer.innerHTML = '<div class="loading">正在评测中...</div>';
-            const response = await fetch('/api/compile', {
+            const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
