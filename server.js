@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const compileHandler = require('./api/index.js');
+const { compileAndRun } = require('./api/index.js');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -20,13 +20,19 @@ app.use(express.json({
 // 提供静态文件服务
 app.use(express.static('public'));
 
+// 确保响应总是JSON格式
+app.use((req, res, next) => {
+    res.setHeader('Content-Type', 'application/json');
+    next();
+});
+
 // 处理编译请求
 app.post('/api/compile', async (req, res) => {
     try {
         const { code, input, expectedOutput } = req.body;
         
         if (!code) {
-            return res.status(400).json({
+            return res.json({
                 success: false,
                 error: '代码不能为空'
             });
@@ -35,7 +41,7 @@ app.post('/api/compile', async (req, res) => {
         const output = await compileAndRun(code, input || '');
         const isCorrect = output === expectedOutput.trim();
 
-        res.json({
+        return res.json({
             success: true,
             output: output,
             isCorrect: isCorrect,
@@ -43,7 +49,7 @@ app.post('/api/compile', async (req, res) => {
         });
     } catch (error) {
         console.error('编译运行错误:', error);
-        res.status(500).json({
+        return res.json({
             success: false,
             error: error.message || '未知错误'
         });
@@ -53,16 +59,18 @@ app.post('/api/compile', async (req, res) => {
 // 错误处理中间件
 app.use((err, req, res, next) => {
     console.error('Error:', err);
-    res.status(500).json({
+    return res.json({
         success: false,
         error: err.message || '服务器内部错误'
     });
 });
 
+// 添加测试端点
+app.get('/test', (req, res) => {
+    res.json({ status: 'ok', message: '服务器正常运行' });
+});
+
 // 启动服务器
 app.listen(port, () => {
     console.log(`服务器运行在 http://localhost:${port}`);
-});
-
-// 从 api/index.js 导入编译函数
-const { compileAndRun } = require('./api/index.js'); 
+}); 
