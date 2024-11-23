@@ -1,68 +1,49 @@
 const { exec } = require('child_process');
-const fs = require('fs').promises;
-const path = require('path');
 const crypto = require('crypto');
 
-// 创建临时文件的函数
-async function createTempFile(content, extension) {
-    const tempDir = path.join(__dirname, '../temp');
-    const fileName = crypto.randomBytes(16).toString('hex') + extension;
-    const filePath = path.join(tempDir, fileName);
-    
-    // 确保临时目录存在
-    await fs.mkdir(tempDir, { recursive: true });
-    await fs.writeFile(filePath, content);
-    return filePath;
-}
+// 使用内存中的临时变量存储代码和输入
+const tempStorage = new Map();
 
-// 清理临时文件
-async function cleanupFiles(...files) {
-    for (const file of files) {
-        try {
-            // 先检查文件是否存在
-            const exists = await fs.access(file).then(() => true).catch(() => false);
-            if (exists) {
-                await fs.unlink(file);
-            }
-        } catch (error) {
-            // 只在开发环境下输出错误信息
-            if (process.env.NODE_ENV === 'development') {
-                console.error('清理文件失败:', error);
-            }
-        }
-    }
+// 生成唯一ID
+function generateId() {
+    return crypto.randomBytes(16).toString('hex');
 }
 
 // 编译并运行C++代码
 async function compileAndRun(code, input) {
-    return new Promise(async (resolve, reject) => {
-        const sourceFile = await createTempFile(code, '.cpp');
-        const inputFile = await createTempFile(input, '.txt');
-        const executableFile = sourceFile.replace('.cpp', '');
+    return new Promise((resolve, reject) => {
+        const id = generateId();
+        tempStorage.set(`${id}_code`, code);
+        tempStorage.set(`${id}_input`, input);
 
-        // 编译代码
-        exec(`g++ "${sourceFile}" -o "${executableFile}"`, async (error, stdout, stderr) => {
+        // 使用 echo 命令直接输入代码到编译器
+        const compileCmd = `echo "${code}" | g++ -x c++ -o /tmp/${id} -`;
+        
+        exec(compileCmd, (error, stdout, stderr) => {
             if (error) {
-                await cleanupFiles(sourceFile, inputFile);
+                // 清理存储
+                tempStorage.delete(`${id}_code`);
+                tempStorage.delete(`${id}_input`);
                 return reject(new Error(`编译错误: ${stderr}`));
             }
 
-            // 运行程序
-            exec(`"${executableFile}" < "${inputFile}"`, 
-                { timeout: 5000 }, // 5秒超时
-                async (error, stdout, stderr) => {
-                    await cleanupFiles(sourceFile, inputFile, executableFile);
+            // 使用 echo 命令输入测试数据
+            const runCmd = `echo "${input}" | /tmp/${id}`;
+            exec(runCmd, { timeout: 5000 }, (error, stdout, stderr) => {
+                // 清理临时文件和存储
+                exec(`rm -f /tmp/${id}`);
+                tempStorage.delete(`${id}_code`);
+                tempStorage.delete(`${id}_input`);
 
-                    if (error) {
-                        if (error.killed) {
-                            return reject(new Error('程序执行超时'));
-                        }
-                        return reject(new Error(`运行错误: ${stderr}`));
+                if (error) {
+                    if (error.killed) {
+                        return reject(new Error('程序执行超时'));
                     }
-
-                    resolve(stdout.trim());
+                    return reject(new Error(`运行错误: ${stderr}`));
                 }
-            );
+
+                resolve(stdout.trim());
+            });
         });
     });
 }
