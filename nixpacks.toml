@@ -1,5 +1,8 @@
 [phases.setup]
-nixPkgs = ['gcc', 'gnumake']
+nixPkgs = ['gcc', 'gnumake', 'nodejs', 'npm']
+
+[phases.install]
+cmds = ['npm install']
 
 [start]
 cmd = "npm start" 
