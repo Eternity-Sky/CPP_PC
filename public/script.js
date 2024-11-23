@@ -25,6 +25,8 @@ int main() {
     submitBtn.addEventListener('click', async () => {
         try {
             resultContainer.innerHTML = '<div class="loading">正在评测中...</div>';
+            console.log('发送请求到:', API_URL);
+            
             const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: {
@@ -38,9 +40,15 @@ int main() {
                 })
             });
 
+            console.log('响应状态:', response.status);
+            
             const contentType = response.headers.get('content-type');
+            console.log('响应类型:', contentType);
+
             if (!contentType || !contentType.includes('application/json')) {
-                throw new Error('服务器返回了非JSON格式的数据');
+                const text = await response.text();
+                console.error('非JSON响应:', text);
+                throw new Error(`服务器返回了非JSON格式的数据: ${text.substring(0, 100)}...`);
             }
 
             const data = await response.json();
@@ -72,6 +80,7 @@ int main() {
                     </div>`;
             }
         } catch (error) {
+            console.error('详细错误:', error);
             resultContainer.innerHTML = `
                 <div class="result error">
                     <div class="status">✗ 系统错误</div>
@@ -79,7 +88,6 @@ int main() {
                         <pre>${error.message}</pre>
                     </div>
                 </div>`;
-            console.error('API错误:', error);
         }
     });
 }); 
