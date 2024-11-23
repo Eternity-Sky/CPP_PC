@@ -1,4 +1,4 @@
-const API_URL = 'https://你的railway域名/api/compile';  // 例如：https://你的项目名.railway.app/api/compile
+const API_URL = '您的域名/api/compile';
 
 document.addEventListener('DOMContentLoaded', () => {
     const codeEditor = document.getElementById('code-editor');
