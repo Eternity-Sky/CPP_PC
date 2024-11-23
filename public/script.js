@@ -22,10 +22,12 @@ int main() {
 
     submitBtn.addEventListener('click', async () => {
         try {
-            const response = await fetch('/.netlify/functions/compile', {
+            resultContainer.innerHTML = '<div class="loading">正在评测中...</div>';
+            const response = await fetch('/api/compile', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify({
                     code: codeEditor.value,
@@ -33,14 +35,49 @@ int main() {
                     expectedOutput: expectedOutput.value
                 })
             });
+
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('服务器返回了非JSON格式的数据');
+            }
+
             const data = await response.json();
             if (data.success) {
-                resultContainer.innerHTML = `<pre>${data.output}</pre>`;
+                const resultClass = data.isCorrect ? 'success' : 'wrong-answer';
+                const resultHTML = `
+                    <div class="result ${resultClass}">
+                        <div class="status">${data.isCorrect ? '✓ 通过测试' : '✗ 答案错误'}</div>
+                        <div class="details">
+                            <div class="output-section">
+                                <h4>程序输出：</h4>
+                                <pre>${data.output}</pre>
+                            </div>
+                            ${!data.isCorrect ? `
+                            <div class="expected-section">
+                                <h4>期望输出：</h4>
+                                <pre>${expectedOutput.value}</pre>
+                            </div>` : ''}
+                        </div>
+                    </div>`;
+                resultContainer.innerHTML = resultHTML;
             } else {
-                resultContainer.innerHTML = `<p style="color: red;">错误：${data.error}</p>`;
+                resultContainer.innerHTML = `
+                    <div class="result error">
+                        <div class="status">✗ ${data.error.includes('编译错误') ? '编译错误' : '运行错误'}</div>
+                        <div class="details">
+                            <pre>${data.error}</pre>
+                        </div>
+                    </div>`;
             }
         } catch (error) {
-            resultContainer.innerHTML = `<p style="color: red;">评测出错：${error.message}</p>`;
+            resultContainer.innerHTML = `
+                <div class="result error">
+                    <div class="status">✗ 系统错误</div>
+                    <div class="details">
+                        <pre>${error.message}</pre>
+                    </div>
+                </div>`;
+            console.error('API错误:', error);
         }
     });
 }); 

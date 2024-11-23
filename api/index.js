@@ -1,76 +1,99 @@
 const { exec } = require('child_process');
 const fs = require('fs').promises;
 const path = require('path');
-const os = require('os');
+const crypto = require('crypto');
 
+// 创建临时文件的函数
+async function createTempFile(content, extension) {
+    const tempDir = path.join(__dirname, '../temp');
+    const fileName = crypto.randomBytes(16).toString('hex') + extension;
+    const filePath = path.join(tempDir, fileName);
+    
+    // 确保临时目录存在
+    await fs.mkdir(tempDir, { recursive: true });
+    await fs.writeFile(filePath, content);
+    return filePath;
+}
+
+// 清理临时文件
+async function cleanupFiles(...files) {
+    for (const file of files) {
+        try {
+            // 先检查文件是否存在
+            const exists = await fs.access(file).then(() => true).catch(() => false);
+            if (exists) {
+                await fs.unlink(file);
+            }
+        } catch (error) {
+            // 只在开发环境下输出错误信息
+            if (process.env.NODE_ENV === 'development') {
+                console.error('清理文件失败:', error);
+            }
+        }
+    }
+}
+
+// 编译并运行C++代码
+async function compileAndRun(code, input) {
+    return new Promise(async (resolve, reject) => {
+        const sourceFile = await createTempFile(code, '.cpp');
+        const inputFile = await createTempFile(input, '.txt');
+        const executableFile = sourceFile.replace('.cpp', '');
+
+        // 编译代码
+        exec(`g++ "${sourceFile}" -o "${executableFile}"`, async (error, stdout, stderr) => {
+            if (error) {
+                await cleanupFiles(sourceFile, inputFile);
+                return reject(new Error(`编译错误: ${stderr}`));
+            }
+
+            // 运行程序
+            exec(`"${executableFile}" < "${inputFile}"`, 
+                { timeout: 5000 }, // 5秒超时
+                async (error, stdout, stderr) => {
+                    await cleanupFiles(sourceFile, inputFile, executableFile);
+
+                    if (error) {
+                        if (error.killed) {
+                            return reject(new Error('程序执行超时'));
+                        }
+                        return reject(new Error(`运行错误: ${stderr}`));
+                    }
+
+                    resolve(stdout.trim());
+                }
+            );
+        });
+    });
+}
+
+// API 路由处理
 module.exports = async (req, res) => {
-    // 设置CORS
-    res.setHeader('Access-Control-Allow-Credentials', true);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
-    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
-
-    // 处理OPTIONS请求
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-
     if (req.method !== 'POST') {
-        return res.status(405).json({ success: false, error: '只支持POST请求' });
-    }
-
-    const { code, input } = req.body;
-
-    if (!code) {
-        return res.status(400).json({ success: false, error: '代码不能为空' });
+        return res.status(405).json({ success: false, error: '只支持 POST 请求' });
     }
 
     try {
-        // 使用系统临时目录
-        const tmpDir = os.tmpdir();
-        const filename = 'code_' + Date.now();
-        const sourcePath = path.join(tmpDir, `${filename}.cpp`);
-        const exePath = path.join(tmpDir, filename);
-        const inputPath = path.join(tmpDir, `${filename}.txt`);
+        const { code, input, expectedOutput } = req.body;
 
-        // 写入文件
-        await fs.writeFile(sourcePath, code);
-        await fs.writeFile(inputPath, input || '');
+        if (!code) {
+            return res.status(400).json({ success: false, error: '代码不能为空' });
+        }
 
-        // 编译
-        const compileResult = await new Promise((resolve, reject) => {
-            exec(`g++ "${sourcePath}" -o "${exePath}"`, (error, stdout, stderr) => {
-                if (error) reject(stderr);
-                else resolve(stdout);
-            });
+        const output = await compileAndRun(code, input || '');
+        const isCorrect = output === expectedOutput.trim();
+
+        res.json({
+            success: true,
+            output: output,
+            isCorrect: isCorrect,
+            message: isCorrect ? '测试通过！' : '输出结果与预期不符'
         });
 
-        // 运行
-        const runResult = await new Promise((resolve, reject) => {
-            exec(`"${exePath}" < "${inputPath}"`, {
-                timeout: 5000,
-                maxBuffer: 1024 * 1024
-            }, (error, stdout, stderr) => {
-                if (error && error.killed) {
-                    reject('执行超时');
-                } else if (error) {
-                    reject(stderr);
-                } else {
-                    resolve(stdout);
-                }
-            });
-        });
-
-        // 清理文件
-        await Promise.all([
-            fs.unlink(sourcePath),
-            fs.unlink(exePath),
-            fs.unlink(inputPath)
-        ]).catch(console.error);
-
-        res.json({ success: true, output: runResult });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.toString() });
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
     }
 }; 
